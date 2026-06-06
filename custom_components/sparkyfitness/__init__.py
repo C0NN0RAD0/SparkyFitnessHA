@@ -83,22 +83,39 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
     today = dt_util.now().date().isoformat()
     data: dict[str, Any] = {
         "check_in": {},
+        "daily_summary": {},
+        "sleep": {},
+        "exercises": [],
+        "mood": {},
     }
 
-    endpoint = f"/measurements/check-in/{today}"
+    endpoints = {
+        "check_in": f"/measurements/check-in/{today}",
+        "daily_summary": "/daily-summary",
+        "sleep": "/sleep?limit=1",
+        "exercises": "/exercise-entries?limit=10",
+        "mood": "/mood?limit=1",
+    }
 
-    try:
-        response = await client.async_get(endpoint)
-    except ClientResponseError as err:
-        if err.status == 401:
-            raise UpdateFailed("Authentication failed") from err
-        raise UpdateFailed(f"API error for {endpoint}: HTTP {err.status}") from err
-    except UpdateFailed:
-        raise
-    except Exception as err:
-        raise UpdateFailed(f"Unexpected update error: {err}") from err
-
-    data["check_in"] = response
+    for key, endpoint in endpoints.items():
+        try:
+            response = await client.async_get(endpoint)
+            if key == "exercises":
+                data[key] = response.get("exercises", []) if isinstance(response, dict) else []
+            else:
+                data[key] = response
+        except ClientResponseError as err:
+            if err.status == 401:
+                raise UpdateFailed("Authentication failed") from err
+            if err.status == 404:
+                # 404 is a valid state if no logs/checkins exist for today yet
+                _LOGGER.debug("Endpoint %s returned 404 (no data for today)", endpoint)
+                continue
+            raise UpdateFailed(f"API error for {endpoint}: HTTP {err.status}") from err
+        except UpdateFailed:
+            raise
+        except Exception as err:
+            raise UpdateFailed(f"Unexpected update error on {endpoint}: {err}") from err
 
     return data
 
@@ -109,7 +126,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
         hass, verify_ssl=entry.data[CONF_VERIFY_SSL]
     )
     config = SparkyFitnessConfig(
-        base_url=f"https://{entry.data[CONF_HOST]}",
+        base_url=f"{entry.data.get(CONF_SCHEME, 'https')}://{entry.data[CONF_HOST]}",
         token=entry.data[CONF_TOKEN],
     )
     client = SparkyFitnessApiClient(session, config)

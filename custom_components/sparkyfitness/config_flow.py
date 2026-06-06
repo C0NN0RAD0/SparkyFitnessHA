@@ -19,7 +19,7 @@ from .const import API_TIMEOUT_SECONDS, CONF_SCHEME, CONF_VERIFY_SSL, DOMAIN
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): str,
-        vol.Required(CONF_SCHEME, default="https"): vol.In(["https"]),
+        vol.Required(CONF_SCHEME, default="https"): vol.In(["http", "https"]),
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_TOKEN): str,
         vol.Optional(CONF_VERIFY_SSL, default=True): bool,
@@ -71,26 +71,23 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def _async_validate_input(self, user_input: dict[str, Any]) -> None:
-        """Validate host and token by calling the documented check-in endpoint."""
+        """Validate host and token by calling the health endpoint."""
         session = async_get_clientsession(
             self.hass, verify_ssl=user_input[CONF_VERIFY_SSL]
         )
         url = (
-            f"https://{_normalize_host(user_input[CONF_HOST])}"
-            f"/api/measurements/check-in/{_today()}"
+            f"{user_input[CONF_SCHEME]}://{_normalize_host(user_input[CONF_HOST])}"
+            f"/api/health"
         )
         headers = {"Authorization": f"Bearer {user_input[CONF_TOKEN]}"}
 
         try:
             async with async_timeout.timeout(API_TIMEOUT_SECONDS):
                 async with session.get(url, headers=headers) as response:
-                    if response.status == 401:
-                        raise InvalidAuthError
+                    if response.status in (401, 403):
+                         raise InvalidAuthError
 
-                    if response.status == 403:
-                        raise InvalidAuthError
-
-                    if response.status in (400, 404, 405):
+                    if response.status in (404, 405):
                         raise EndpointError
 
                     if response.status >= 400:

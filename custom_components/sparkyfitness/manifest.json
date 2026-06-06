@@ -1,7 +1,7 @@
 {
   "domain": "sparkyfitness",
   "name": "Sparky Fitness",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "documentation": "https://github.com/C0NN0RAD0/SparkyFitnessHA",
   "issue_tracker": "https://github.com/C0NN0RAD0/SparkyFitnessHA/issues",
   "dependencies": [],
