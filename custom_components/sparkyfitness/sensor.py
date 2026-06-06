@@ -201,11 +201,16 @@ class CheckInSensor(SparkyFitnessCoordinatorSensor):
         self._attr_state_class = description.state_class
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> float | int | None:
         """Return state from the current check-in payload."""
         payload = self.coordinator.data.get("check_in", {})
         value = payload.get(self._key)
-        return _as_float(value)
+        val = _as_float(value)
+        if val is None:
+            return None
+        if self._key == "steps":
+            return int(val)
+        return round(val, 1)
 
 
 class DailySummarySensor(SparkyFitnessCoordinatorSensor):
@@ -223,11 +228,16 @@ class DailySummarySensor(SparkyFitnessCoordinatorSensor):
         self._attr_state_class = description.state_class
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> float | int | None:
         """Return state from daily summary payload."""
         payload = self.coordinator.data.get("daily_summary", {})
         value = payload.get(f"total_{self._key}") or payload.get(self._key)
-        return _as_float(value)
+        val = _as_float(value)
+        if val is None:
+            return None
+        if self._key == "calories":
+            return int(round(val))
+        return round(val, 1)
 
 
 class SleepDurationSensor(SparkyFitnessCoordinatorSensor):
@@ -282,7 +292,7 @@ class ExerciseDurationSensor(SparkyFitnessCoordinatorSensor):
         for item in exercises:
             if isinstance(item, dict):
                 total += _as_float(item.get("duration_minutes")) or 0.0
-        return total if total > 0 else None
+        return round(total, 1)
 
 
 class ExerciseCaloriesSensor(SparkyFitnessCoordinatorSensor):
@@ -300,14 +310,14 @@ class ExerciseCaloriesSensor(SparkyFitnessCoordinatorSensor):
         )
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> int | None:
         """Return total exercise calories from current payload."""
         exercises = self.coordinator.data.get("exercises", [])
         total = 0.0
         for item in exercises:
             if isinstance(item, dict):
                 total += _as_float(item.get("calories_burned")) or 0.0
-        return total if total > 0 else None
+        return int(round(total))
 
 
 class WaterIntakeSensor(SparkyFitnessCoordinatorSensor):
@@ -325,13 +335,14 @@ class WaterIntakeSensor(SparkyFitnessCoordinatorSensor):
         )
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> int | None:
         """Return water intake in ml."""
         payload = self.coordinator.data.get("water", {})
         value = payload.get("water_ml")
         if value is not None:
-            return _as_float(value)
-        return 0.0
+            val = _as_float(value)
+            return int(round(val)) if val is not None else 0
+        return 0
 
 
 class MoodSensor(SparkyFitnessCoordinatorSensor):
