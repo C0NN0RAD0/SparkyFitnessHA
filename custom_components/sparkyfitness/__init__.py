@@ -13,6 +13,7 @@ import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_TOKEN, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -79,42 +80,25 @@ SparkyFitnessConfigEntry: TypeAlias = ConfigEntry[SparkyFitnessRuntimeData]
 
 async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
     """Fetch all datasets used by entities."""
+    today = dt_util.now().date().isoformat()
     data: dict[str, Any] = {
-        "daily_summary": {},
-        "measurements": [],
-        "sleep": {},
-        "exercises": [],
-        "water": {},
-        "mood": {},
+        "check_in": {},
     }
 
-    endpoints = {
-        "daily_summary": "/daily-summary",
-        "measurements": "/measurements?limit=1",
-        "sleep": "/sleep?limit=1",
-        "exercises": "/exercise-entries?limit=10",
-        "water": "/water-containers",
-        "mood": "/mood?limit=1",
-    }
+    endpoint = f"/measurements/check-in/{today}"
 
-    for key, endpoint in endpoints.items():
-        try:
-            response = await client.async_get(endpoint)
-        except ClientResponseError as err:
-            if err.status == 401:
-                raise UpdateFailed("Authentication failed") from err
-            raise UpdateFailed(f"API error for {endpoint}: HTTP {err.status}") from err
-        except UpdateFailed:
-            raise
-        except Exception as err:
-            raise UpdateFailed(f"Unexpected update error: {err}") from err
+    try:
+        response = await client.async_get(endpoint)
+    except ClientResponseError as err:
+        if err.status == 401:
+            raise UpdateFailed("Authentication failed") from err
+        raise UpdateFailed(f"API error for {endpoint}: HTTP {err.status}") from err
+    except UpdateFailed:
+        raise
+    except Exception as err:
+        raise UpdateFailed(f"Unexpected update error: {err}") from err
 
-        if key == "measurements":
-            data[key] = response.get("measurements", [])
-        elif key == "exercises":
-            data[key] = response.get("exercises", [])
-        else:
-            data[key] = response
+    data["check_in"] = response
 
     return data
 
