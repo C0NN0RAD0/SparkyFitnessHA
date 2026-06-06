@@ -17,6 +17,51 @@ SparkyFitness for Home Assistant exposes daily nutrition, activity, sleep, fasti
 - **Multi-Entry Support**: configure multiple accounts/entries
 - **5-Minute Polling**: automatic updates using Home Assistant's coordinator pattern
 
+## Available Sensors
+
+Once configured, the integration creates the following sensor entities in Home Assistant (prefixed with `sensor.sparky_fitness_`):
+
+### Daily Nutrition
+- `daily_calories` (kcal)
+- `daily_protein` (g)
+- `daily_carbs` (g)
+- `daily_fat` (g)
+
+### Hydration & Mood
+- `water_intake` (ml) - includes `containers` attribute with name, volume, unit, and UUIDs
+- `current_mood` (Awful, Bad, Okay, Good, Excellent)
+
+### Daily Goals
+- `daily_calorie_goal` (kcal)
+- `daily_protein_goal` (g)
+- `daily_carbs_goal` (g)
+- `daily_fat_goal` (g)
+- `daily_water_goal` (ml)
+
+### Fasting Tracker
+- `fasting_status` (State: `Fasting` or `Not Fasting` - includes `fast_id`, `start_time`, `target_end_time`, `fasting_type`, and `duration_hours` attributes)
+- `total_completed_fasts`
+- `average_fast_duration` (hours)
+
+### Sleep & Exercise
+- `sleep_duration` (hours)
+- `exercise_duration` (minutes)
+- `exercise_calories` (kcal)
+
+### Check-in Metrics (Body Measurements)
+- `body_weight` (kg)
+- `body_fat` (%)
+- `bmi`
+- `steps`
+- `neck` (cm)
+- `chest` (cm)
+- `waist` (cm)
+- `hips` (cm)
+- `thigh` (cm)
+- `calf` (cm)
+- `bicep` (cm)
+- `forearm` (cm)
+
 ## Installation
 
 ### HACS (Recommended)
