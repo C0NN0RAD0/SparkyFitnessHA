@@ -226,7 +226,7 @@ class DailySummarySensor(SparkyFitnessCoordinatorSensor):
     def native_value(self) -> float | None:
         """Return state from daily summary payload."""
         payload = self.coordinator.data.get("daily_summary", {})
-        value = payload.get(self._key)
+        value = payload.get(f"total_{self._key}") or payload.get(self._key)
         return _as_float(value)
 
 
@@ -327,8 +327,11 @@ class WaterIntakeSensor(SparkyFitnessCoordinatorSensor):
     @property
     def native_value(self) -> float | None:
         """Return water intake in ml."""
-        payload = self.coordinator.data.get("daily_summary", {})
-        return _as_float(payload.get("water_intake_ml"))
+        payload = self.coordinator.data.get("water", {})
+        value = payload.get("water_ml")
+        if value is not None:
+            return _as_float(value)
+        return 0.0
 
 
 class MoodSensor(SparkyFitnessCoordinatorSensor):
@@ -346,10 +349,22 @@ class MoodSensor(SparkyFitnessCoordinatorSensor):
     def native_value(self) -> str | None:
         """Return latest mood label."""
         payload = self.coordinator.data.get("mood", {})
-        value = payload.get("mood_label")
+        label = payload.get("mood_label")
+        if label is not None:
+            return str(label)
+        
+        value = payload.get("mood_value")
         if value is None:
             return None
-        return str(value)
+            
+        mapping = {
+            1: "Awful",
+            2: "Bad",
+            3: "Okay",
+            4: "Good",
+            5: "Excellent",
+        }
+        return mapping.get(int(value), str(value))
 
 
 def _as_float(value: Any) -> float | None:

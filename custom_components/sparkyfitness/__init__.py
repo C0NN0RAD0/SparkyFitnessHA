@@ -86,22 +86,26 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
         "daily_summary": {},
         "sleep": {},
         "exercises": [],
+        "water": {},
         "mood": {},
     }
 
     endpoints = {
         "check_in": f"/measurements/check-in/{today}",
-        "daily_summary": "/daily-summary",
-        "sleep": "/sleep?limit=1",
-        "exercises": "/exercise-entries?limit=10",
-        "mood": "/mood?limit=1",
+        "daily_summary": f"/food-entries/nutrition/today?date={today}",
+        "sleep": f"/sleep?startDate={today}&endDate={today}",
+        "exercises": f"/exercise-entries/by-date?selectedDate={today}",
+        "water": f"/measurements/water-intake/{today}",
+        "mood": f"/mood/date/{today}",
     }
 
     for key, endpoint in endpoints.items():
         try:
             response = await client.async_get(endpoint)
             if key == "exercises":
-                data[key] = response.get("exercises", []) if isinstance(response, dict) else []
+                data[key] = response if isinstance(response, list) else []
+            elif key == "sleep":
+                data[key] = response[0] if isinstance(response, list) and len(response) > 0 else {}
             else:
                 data[key] = response
         except ClientResponseError as err:
