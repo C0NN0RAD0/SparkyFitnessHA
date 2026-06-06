@@ -235,6 +235,13 @@ async def async_setup_entry(
         FastingStatusSensor(coordinator),
     ])
 
+    custom_categories = coordinator.data.get("custom_categories", [])
+    entities.extend([
+        CustomMeasurementSensor(coordinator, category)
+        for category in custom_categories
+        if isinstance(category, dict) and category.get("id")
+    ])
+
     async_add_entities(entities)
 
 
@@ -579,3 +586,41 @@ class FastingStatusSensor(SparkyFitnessCoordinatorSensor):
             "fasting_type": fasting_type,
             "duration_hours": duration_hours,
         }
+
+
+class CustomMeasurementSensor(SparkyFitnessCoordinatorSensor):
+    """Sensor for custom fitness and health measurements."""
+
+    def __init__(self, coordinator, category: dict[str, Any]) -> None:
+        name = category.get("name", "Custom Measurement")
+        display_name = category.get("display_name") or name.replace("_", " ").title()
+        unit = category.get("measurement_type")
+        
+        super().__init__(
+            coordinator,
+            unique_key=f"custom_{category['id']}",
+            name=display_name,
+            icon="mdi:chart-bell-curve-cumulative",
+        )
+        self._category = category
+        self._category_id = category["id"]
+        self._attr_native_unit_of_measurement = unit
+        if category.get("data_type") == "numeric":
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def native_value(self) -> float | str | bool | None:
+        """Return value of the custom measurement for today."""
+        entries = self.coordinator.data.get("custom_entries", [])
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("category_id") == self._category_id:
+                val = entry.get("value")
+                if val is None:
+                    return None
+                data_type = self._category.get("data_type")
+                if data_type == "numeric":
+                    return _as_float(val)
+                elif data_type == "boolean":
+                    return str(val).lower() in ("true", "1", "yes")
+                return str(val)
+        return None

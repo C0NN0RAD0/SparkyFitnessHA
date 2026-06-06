@@ -19,7 +19,7 @@ SparkyFitness for Home Assistant exposes daily nutrition, activity, sleep, fasti
 
 ## Available Sensors
 
-Once configured, the integration creates the following sensor entities in Home Assistant (prefixed with `sensor.sparky_fitness_`):
+Once configured, the integration creates standard sensor entities (prefixed with `sensor.sparky_fitness_`), as well as dynamically discovering any **custom measurement categories** defined on your Sparky Fitness server (e.g., Resting Heart Rate, Metabolism, Muscle Mass, VO2 Max, walking speed, etc.).
 
 ### Daily Nutrition
 - `daily_calories` (kcal)

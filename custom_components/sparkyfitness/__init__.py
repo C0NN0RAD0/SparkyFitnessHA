@@ -110,6 +110,8 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
         "fasting_stats": {},
         "goals": {},
         "water_containers": [],
+        "custom_categories": [],
+        "custom_entries": [],
     }
 
     endpoints = {
@@ -123,12 +125,14 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
         "fasting_stats": "/fasting/stats",
         "goals": f"/goals/by-date/{today}",
         "water_containers": "/water-containers",
+        "custom_categories": "/measurements/custom-categories",
+        "custom_entries": f"/measurements/custom-entries/{today}",
     }
 
     for key, endpoint in endpoints.items():
         try:
             response = await client.async_get(endpoint)
-            if key == "exercises" or key == "water_containers":
+            if key in ("exercises", "water_containers", "custom_categories", "custom_entries"):
                 data[key] = response if isinstance(response, list) else []
             elif key == "sleep":
                 data[key] = response[0] if isinstance(response, list) and len(response) > 0 else {}
