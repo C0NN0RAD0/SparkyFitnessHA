@@ -16,6 +16,8 @@
     },
     "error": {
       "invalid_auth": "Authentication failed. Check your API token.",
+      "certificate_error": "Certificate verification failed. Check the host certificate or disable verification only for trusted servers.",
+      "invalid_endpoint": "The server responded, but the expected API endpoint was not found.",
       "cannot_connect": "Cannot connect to SparkyFitness server.",
       "unknown": "Unexpected error"
     }

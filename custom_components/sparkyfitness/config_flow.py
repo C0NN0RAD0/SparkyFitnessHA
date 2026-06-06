@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
 
 import voluptuous as vol
-from aiohttp import ClientError
+from aiohttp import ClientConnectorCertificateError, ClientConnectorError, ClientError
 import async_timeout
 
 from homeassistant import config_entries
@@ -43,6 +44,10 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self._async_validate_input(user_input)
             except InvalidAuthError:
                 errors["base"] = "invalid_auth"
+            except CertificateError:
+                errors["base"] = "certificate_error"
+            except EndpointError:
+                errors["base"] = "invalid_endpoint"
             except CannotConnectError:
                 errors["base"] = "cannot_connect"
             except Exception:
@@ -53,7 +58,7 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_NAME: user_input[CONF_NAME],
                         CONF_SCHEME: user_input[CONF_SCHEME],
-                        CONF_HOST: user_input[CONF_HOST].rstrip("/"),
+                        CONF_HOST: _normalize_host(user_input[CONF_HOST]),
                         CONF_TOKEN: user_input[CONF_TOKEN],
                         CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
                     },
@@ -66,11 +71,14 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def _async_validate_input(self, user_input: dict[str, Any]) -> None:
-        """Validate host and token by calling health endpoint."""
+        """Validate host and token by calling the documented check-in endpoint."""
         session = async_get_clientsession(
             self.hass, verify_ssl=user_input[CONF_VERIFY_SSL]
         )
-        url = f"https://{user_input[CONF_HOST].rstrip('/')}/api/health"
+        url = (
+            f"https://{_normalize_host(user_input[CONF_HOST])}"
+            f"/api/measurements/check-in/{_today()}"
+        )
         headers = {"Authorization": f"Bearer {user_input[CONF_TOKEN]}"}
 
         try:
@@ -79,13 +87,23 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if response.status == 401:
                         raise InvalidAuthError
 
+                    if response.status == 403:
+                        raise InvalidAuthError
+
+                    if response.status in (400, 404, 405):
+                        raise EndpointError
+
                     if response.status >= 400:
                         raise CannotConnectError
 
                     await response.read()
         except InvalidAuthError:
             raise
-        except (ClientError, TimeoutError):
+        except CertificateError:
+            raise
+        except ClientConnectorCertificateError:
+            raise CertificateError
+        except (ClientConnectorError, TimeoutError, ClientError):
             raise CannotConnectError
 
 
@@ -95,3 +113,28 @@ class CannotConnectError(Exception):
 
 class InvalidAuthError(Exception):
     """Error to indicate authentication failure."""
+
+
+class CertificateError(Exception):
+    """Error to indicate a TLS certificate verification failure."""
+
+
+class EndpointError(Exception):
+    """Error to indicate the documented API endpoint could not be found."""
+
+
+def _today() -> str:
+    """Return today's date in YYYY-MM-DD format."""
+    from homeassistant.util import dt as dt_util
+
+    return dt_util.now().date().isoformat()
+
+
+def _normalize_host(host: str) -> str:
+    """Normalize pasted URLs to a bare host and optional port."""
+    parsed = urlsplit(host.strip())
+
+    if parsed.scheme and parsed.netloc:
+        return parsed.netloc.rstrip("/")
+
+    return host.strip().removesuffix("/")
