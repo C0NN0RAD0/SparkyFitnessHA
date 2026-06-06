@@ -1,0 +1,8 @@
+{
+  "name": "SparkyFitness",
+  "homeassistant": "2024.1.0",
+  "issues": "https://github.com/C0NN0RAD0/SparkyFitnessHA/issues",
+  "documentation": "https://github.com/C0NN0RAD0/SparkyFitnessHA",
+  "repo": "C0NN0RAD0/SparkyFitnessHA",
+  "render_readme": true
+}

@@ -1,0 +1,12 @@
+{
+  "domain": "sparkyfitness",
+  "name": "SparkyFitness",
+  "codeowners": ["@C0NN0RAD0"],
+  "config_flow": true,
+  "documentation": "https://github.com/C0NN0RAD0/SparkyFitnessHA",
+  "requirements": [],
+  "version": "1.0.0",
+  "issue_tracker": "https://github.com/C0NN0RAD0/SparkyFitnessHA/issues",
+  "iot_class": "local_polling",
+  "homeassistant": "2024.1.0"
+}

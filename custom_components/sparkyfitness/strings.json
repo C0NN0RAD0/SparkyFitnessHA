@@ -1,0 +1,21 @@
+{
+  "title": "SparkyFitness",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure SparkyFitness",
+        "description": "Enter your SparkyFitness server details.",
+        "data": {
+          "name": "Integration name",
+          "host": "SparkyFitness URL",
+          "token": "API token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Authentication failed. Check your API token.",
+      "cannot_connect": "Cannot connect to SparkyFitness server.",
+      "unknown": "Unexpected error"
+    }
+  }
+}

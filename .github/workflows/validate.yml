@@ -1,0 +1,23 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Home Assistant
+        run: pip install homeassistant==2024.1.0 async-timeout>=4.0.0
+
+      - name: Verify Python syntax
+        run: python -m compileall custom_components
