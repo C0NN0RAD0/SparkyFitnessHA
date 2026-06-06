@@ -228,6 +228,10 @@ async def async_setup_entry(
     
     entities.extend([
         SleepDurationSensor(coordinator),
+        SleepScoreSensor(coordinator),
+        DeepSleepSensor(coordinator),
+        RemSleepSensor(coordinator),
+        LightSleepSensor(coordinator),
         ExerciseDurationSensor(coordinator),
         ExerciseCaloriesSensor(coordinator),
         WaterIntakeSensor(coordinator),
@@ -320,7 +324,7 @@ class DailySummarySensor(SparkyFitnessCoordinatorSensor):
 
 
 class SleepDurationSensor(SparkyFitnessCoordinatorSensor):
-    """Sleep duration sensor in hours."""
+    """Total sleep window in hours (bedtime to wake time)."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTime.HOURS
@@ -335,18 +339,131 @@ class SleepDurationSensor(SparkyFitnessCoordinatorSensor):
 
     @property
     def native_value(self) -> float | None:
-        """Return sleep duration in hours."""
+        """Return total sleep window in hours from duration_in_seconds."""
         payload = self.coordinator.data.get("sleep", {})
-        minutes = payload.get("duration_minutes")
-        if minutes is not None:
-            value = _as_float(minutes)
-        else:
-            seconds = payload.get("duration_seconds")
-            value = _as_float(seconds) / 60.0 if seconds is not None else None
-
-        if value is None:
+        if not payload:
             return None
-        return round(value / 60.0, 2)
+        # Confirmed live API field: duration_in_seconds (total window bedtime→wake)
+        val = _as_float(payload.get("duration_in_seconds"))
+        if val is not None:
+            return round(val / 3600.0, 2)
+        # Fallback: compute from bedtime/wake_time
+        bedtime = payload.get("bedtime")
+        wake = payload.get("wake_time")
+        if bedtime and wake:
+            try:
+                from homeassistant.util import dt as dt_util
+                b = dt_util.parse_datetime(str(bedtime))
+                w = dt_util.parse_datetime(str(wake))
+                if b and w and w > b:
+                    return round((w - b).total_seconds() / 3600.0, 2)
+            except Exception:
+                pass
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose rich sleep fields as attributes."""
+        payload = self.coordinator.data.get("sleep", {})
+        if not payload:
+            return None
+        asleep_s = _as_float(payload.get("time_asleep_in_seconds"))
+        return {
+            "bedtime": payload.get("bedtime"),
+            "wake_time": payload.get("wake_time"),
+            "time_asleep_hours": round(asleep_s / 3600.0, 2) if asleep_s is not None else None,
+            "sleep_score": payload.get("sleep_score"),
+            "source": payload.get("source"),
+            "deep_sleep_minutes": round(_as_float(payload.get("deep_sleep_seconds") or 0) / 60, 1),
+            "rem_sleep_minutes": round(_as_float(payload.get("rem_sleep_seconds") or 0) / 60, 1),
+            "light_sleep_minutes": round(_as_float(payload.get("light_sleep_seconds") or 0) / 60, 1),
+            "awake_minutes": round(_as_float(payload.get("awake_sleep_seconds") or 0) / 60, 1),
+        }
+
+
+class SleepScoreSensor(SparkyFitnessCoordinatorSensor):
+    """Sleep quality score (0–100)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = None
+    _attr_icon = "mdi:sleep"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="sleep_score",
+            name="Sleep Score",
+            icon="mdi:sleep",
+        )
+
+    @property
+    def native_value(self) -> int | None:
+        payload = self.coordinator.data.get("sleep", {})
+        val = _as_float(payload.get("sleep_score"))
+        return int(val) if val is not None else None
+
+
+class DeepSleepSensor(SparkyFitnessCoordinatorSensor):
+    """Deep sleep duration in minutes."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="deep_sleep",
+            name="Deep Sleep",
+            icon="mdi:bed-clock",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        payload = self.coordinator.data.get("sleep", {})
+        val = _as_float(payload.get("deep_sleep_seconds"))
+        return round(val / 60.0, 1) if val is not None else None
+
+
+class RemSleepSensor(SparkyFitnessCoordinatorSensor):
+    """REM sleep duration in minutes."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="rem_sleep",
+            name="REM Sleep",
+            icon="mdi:head-dots-horizontal",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        payload = self.coordinator.data.get("sleep", {})
+        val = _as_float(payload.get("rem_sleep_seconds"))
+        return round(val / 60.0, 1) if val is not None else None
+
+
+class LightSleepSensor(SparkyFitnessCoordinatorSensor):
+    """Light sleep duration in minutes."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="light_sleep",
+            name="Light Sleep",
+            icon="mdi:weather-night-partly-cloudy",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        payload = self.coordinator.data.get("sleep", {})
+        val = _as_float(payload.get("light_sleep_seconds"))
+        return round(val / 60.0, 1) if val is not None else None
 
 
 class ExerciseDurationSensor(SparkyFitnessCoordinatorSensor):
