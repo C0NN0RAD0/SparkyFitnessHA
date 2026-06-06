@@ -1,9 +1,7 @@
 {
-  "name": "SparkyFitness",
-  "homeassistant": "2024.1.0",
-  "issues": "https://github.com/C0NN0RAD0/SparkyFitnessHA/issues",
-  "documentation": "https://github.com/C0NN0RAD0/SparkyFitnessHA",
-  "repo": "C0NN0RAD0/SparkyFitnessHA",
-  "version": "1.0.0",
-  "render_readme": true
+  "name": "Sparky Fitness",
+  "zip_release": true,
+  "hide_default_branch": false,
+  "homeassistant": "2023.8.0",
+  "hacs": "1.32.0"
 }
