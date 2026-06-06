@@ -109,7 +109,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
         hass, verify_ssl=entry.data[CONF_VERIFY_SSL]
     )
     config = SparkyFitnessConfig(
-        base_url=f"{entry.data[CONF_SCHEME]}://{entry.data[CONF_HOST]}",
+        base_url=f"https://{entry.data[CONF_HOST]}",
         token=entry.data[CONF_TOKEN],
     )
     client = SparkyFitnessApiClient(session, config)

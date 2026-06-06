@@ -18,7 +18,7 @@ from .const import API_TIMEOUT_SECONDS, CONF_SCHEME, CONF_VERIFY_SSL, DOMAIN
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): str,
-        vol.Required(CONF_SCHEME, default="https"): vol.In(["http", "https"]),
+        vol.Required(CONF_SCHEME, default="https"): vol.In(["https"]),
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_TOKEN): str,
         vol.Optional(CONF_VERIFY_SSL, default=True): bool,
@@ -70,10 +70,7 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         session = async_get_clientsession(
             self.hass, verify_ssl=user_input[CONF_VERIFY_SSL]
         )
-        url = (
-            f"{user_input[CONF_SCHEME]}://{user_input[CONF_HOST].rstrip('/')}"
-            f"/api/health"
-        )
+        url = f"https://{user_input[CONF_HOST].rstrip('/')}/api/health"
         headers = {"Authorization": f"Bearer {user_input[CONF_TOKEN]}"}
 
         try:
