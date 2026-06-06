@@ -145,6 +145,62 @@ DAILY_SENSORS: tuple[SparkyFitnessSensorDescription, ...] = (
 )
 
 
+GOAL_SENSORS: tuple[SparkyFitnessSensorDescription, ...] = (
+    SparkyFitnessSensorDescription(
+        key="calories",
+        name="Daily Calorie Goal",
+        icon="mdi:target",
+        unit="kcal",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SparkyFitnessSensorDescription(
+        key="protein",
+        name="Daily Protein Goal",
+        icon="mdi:target",
+        unit="g",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SparkyFitnessSensorDescription(
+        key="carbs",
+        name="Daily Carbs Goal",
+        icon="mdi:target",
+        unit="g",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SparkyFitnessSensorDescription(
+        key="fat",
+        name="Daily Fat Goal",
+        icon="mdi:target",
+        unit="g",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SparkyFitnessSensorDescription(
+        key="water_goal_ml",
+        name="Daily Water Goal",
+        icon="mdi:target",
+        unit="ml",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+)
+
+
+FASTING_STATS_SENSORS: tuple[SparkyFitnessSensorDescription, ...] = (
+    SparkyFitnessSensorDescription(
+        key="total_completed_fasts",
+        name="Total Completed Fasts",
+        icon="mdi:calendar-check",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SparkyFitnessSensorDescription(
+        key="average_duration_minutes",
+        name="Average Fast Duration",
+        icon="mdi:timer-sand",
+        unit="h",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -161,6 +217,14 @@ async def async_setup_entry(
     entities.extend([
         DailySummarySensor(coordinator, description) for description in DAILY_SENSORS
     ])
+
+    entities.extend([
+        GoalSensor(coordinator, description) for description in GOAL_SENSORS
+    ])
+
+    entities.extend([
+        FastingStatsSensor(coordinator, description) for description in FASTING_STATS_SENSORS
+    ])
     
     entities.extend([
         SleepDurationSensor(coordinator),
@@ -168,6 +232,7 @@ async def async_setup_entry(
         ExerciseCaloriesSensor(coordinator),
         WaterIntakeSensor(coordinator),
         MoodSensor(coordinator),
+        FastingStatusSensor(coordinator),
     ])
 
     async_add_entities(entities)
@@ -386,3 +451,112 @@ def _as_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+class GoalSensor(SparkyFitnessCoordinatorSensor):
+    """Daily target goal sensor."""
+
+    def __init__(self, coordinator, description: SparkyFitnessSensorDescription) -> None:
+        super().__init__(
+            coordinator,
+            unique_key=f"goal_{description.key}",
+            name=description.name,
+            icon=description.icon,
+        )
+        self._key = description.key
+        self._attr_native_unit_of_measurement = description.unit
+        self._attr_state_class = description.state_class
+
+    @property
+    def native_value(self) -> float | int | None:
+        """Return target value from goals payload."""
+        payload = self.coordinator.data.get("goals", {})
+        value = payload.get(self._key)
+        val = _as_float(value)
+        if val is None:
+            return None
+        if self._key in ("calories", "water_goal_ml"):
+            return int(round(val))
+        return round(val, 1)
+
+
+class FastingStatsSensor(SparkyFitnessCoordinatorSensor):
+    """Fasting statistics sensor."""
+
+    def __init__(self, coordinator, description: SparkyFitnessSensorDescription) -> None:
+        super().__init__(
+            coordinator,
+            unique_key=f"fasting_stats_{description.key}",
+            name=description.name,
+            icon=description.icon,
+        )
+        self._key = description.key
+        self._attr_native_unit_of_measurement = description.unit
+        self._attr_state_class = description.state_class
+
+    @property
+    def native_value(self) -> float | int | None:
+        """Return fasting stats from payload."""
+        payload = self.coordinator.data.get("fasting_stats", {})
+        value = payload.get(self._key)
+        if value is None:
+            return None
+            
+        val = _as_float(value)
+        if val is None:
+            return None
+            
+        if self._key == "average_duration_minutes":
+            return round(val / 60.0, 2)
+            
+        return int(round(val))
+
+
+class FastingStatusSensor(SparkyFitnessCoordinatorSensor):
+    """Current fasting status sensor."""
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="fasting_status",
+            name="Fasting Status",
+            icon="mdi:clock-fast",
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        """Return Fasting or Not Fasting status."""
+        active_fast = self.coordinator.data.get("fasting_current")
+        if active_fast and active_fast.get("id"):
+            return "Fasting"
+        return "Not Fasting"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return extra state attributes of the fast."""
+        active_fast = self.coordinator.data.get("fasting_current")
+        if not active_fast or not active_fast.get("id"):
+            return None
+
+        start_time_str = active_fast.get("start_time")
+        target_end_str = active_fast.get("target_end_time")
+        fasting_type = active_fast.get("fasting_type", "Intermittent Fasting")
+
+        duration_hours = None
+        if start_time_str:
+            try:
+                start_dt = dt_util.parse_datetime(start_time_str)
+                if start_dt:
+                    now = dt_util.utcnow()
+                    delta = now - start_dt
+                    duration_hours = round(delta.total_seconds() / 3600.0, 2)
+            except Exception:
+                pass
+
+        return {
+            "fast_id": active_fast.get("id"),
+            "start_time": start_time_str,
+            "target_end_time": target_end_str,
+            "fasting_type": fasting_type,
+            "duration_hours": duration_hours,
+        }

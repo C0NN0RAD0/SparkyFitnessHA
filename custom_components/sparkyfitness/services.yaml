@@ -1,0 +1,114 @@
+start_fast:
+  name: Start Fast
+  description: Starts a new fasting period in Sparky Fitness.
+  fields:
+    fasting_type:
+      name: Fasting Type
+      description: The type of fast (e.g. "Intermittent Fasting", "16:8", "20:4").
+      required: true
+      example: "Intermittent Fasting"
+      selector:
+        text:
+    target_duration_hours:
+      name: Target Duration (Hours)
+      description: The optional target duration of the fast in hours.
+      required: false
+      example: 16
+      selector:
+        number:
+          min: 1
+          max: 168
+          unit_of_measurement: h
+
+end_fast:
+  name: End Fast
+  description: Ends the currently active fasting period in Sparky Fitness.
+  fields:
+    mood_value:
+      name: Mood Value
+      description: How you feel after completing the fast (1-5).
+      required: false
+      example: 4
+      selector:
+        number:
+          min: 1
+          max: 5
+          mode: slider
+    notes:
+      name: Notes
+      description: Optional notes about the fast.
+      required: false
+      example: "Felt great, had a lot of energy!"
+      selector:
+        text:
+
+log_water:
+  name: Log Water Intake
+  description: Logs water intake in Sparky Fitness.
+  fields:
+    amount_ml:
+      name: Amount (ml)
+      description: The volume of water consumed in milliliters.
+      required: true
+      example: 250
+      selector:
+        number:
+          min: 1
+          max: 5000
+          unit_of_measurement: ml
+    container:
+      name: Container Name or UUID
+      description: The name (case-insensitive) or UUID of the container to log. If omitted, falls back to your primary container.
+      required: false
+      example: "Hydro Flask"
+      selector:
+        text:
+
+log_mood:
+  name: Log Mood
+  description: Logs a daily mood entry in Sparky Fitness.
+  fields:
+    mood_value:
+      name: Mood Value
+      description: The mood rating (1-5, where 1 is Awful and 5 is Excellent).
+      required: true
+      example: 4
+      selector:
+        number:
+          min: 1
+          max: 5
+          mode: slider
+    notes:
+      name: Notes
+      description: Optional notes about your day.
+      required: false
+      example: "Had a productive day today!"
+      selector:
+        text:
+
+log_check_in:
+  name: Log Check-In Measurements
+  description: Logs check-in measurements like body weight and body fat percentage.
+  fields:
+    weight:
+      name: Body Weight (kg)
+      description: Your weight in kilograms.
+      required: false
+      example: 82.5
+      selector:
+        number:
+          min: 1
+          max: 500
+          step: 0.1
+          unit_of_measurement: kg
+    body_fat:
+      name: Body Fat Percentage (%)
+      description: Your body fat percentage.
+      required: false
+      example: 18.2
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 0.1
+          unit_of_measurement: "%"
