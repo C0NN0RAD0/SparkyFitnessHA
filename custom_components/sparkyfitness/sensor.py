@@ -7,13 +7,12 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_SCHEME, UnitOfLength, UnitOfMass, UnitOfTime, UnitOfVolume
+from homeassistant.const import CONF_HOST, UnitOfLength, UnitOfMass, UnitOfTime, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import SparkyFitnessConfigEntry
-from .const import ATTRIBUTION, CONF_SCHEME as _CONF_SCHEME_CONST, DOMAIN
+from .const import ATTRIBUTION, DOMAIN
 
 
 @dataclass(frozen=True)
