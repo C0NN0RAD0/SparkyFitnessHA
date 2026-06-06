@@ -7,8 +7,10 @@
         "description": "Enter your SparkyFitness server details.",
         "data": {
           "name": "Integration name",
+          "scheme": "Scheme (http or https)",
           "host": "SparkyFitness URL",
-          "token": "API token"
+          "token": "API token",
+          "verify_ssl": "Verify certificate"
         }
       }
     },

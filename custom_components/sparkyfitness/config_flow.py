@@ -13,13 +13,15 @@ from homeassistant.const import CONF_HOST, CONF_NAME, CONF_TOKEN
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import API_TIMEOUT_SECONDS, DOMAIN
+from .const import API_TIMEOUT_SECONDS, CONF_SCHEME, CONF_VERIFY_SSL, DOMAIN
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): str,
+        vol.Required(CONF_SCHEME, default="https"): vol.In(["http", "https"]),
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_TOKEN): str,
+        vol.Optional(CONF_VERIFY_SSL, default=True): bool,
     }
 )
 
@@ -50,8 +52,10 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title=user_input[CONF_NAME],
                     data={
                         CONF_NAME: user_input[CONF_NAME],
+                        CONF_SCHEME: user_input[CONF_SCHEME],
                         CONF_HOST: user_input[CONF_HOST].rstrip("/"),
                         CONF_TOKEN: user_input[CONF_TOKEN],
+                        CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
                     },
                 )
 
@@ -63,8 +67,13 @@ class SparkyFitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _async_validate_input(self, user_input: dict[str, Any]) -> None:
         """Validate host and token by calling health endpoint."""
-        session = async_get_clientsession(self.hass)
-        url = f"{user_input[CONF_HOST].rstrip('/')}/api/health"
+        session = async_get_clientsession(
+            self.hass, verify_ssl=user_input[CONF_VERIFY_SSL]
+        )
+        url = (
+            f"{user_input[CONF_SCHEME]}://{user_input[CONF_HOST].rstrip('/')}"
+            f"/api/health"
+        )
         headers = {"Authorization": f"Bearer {user_input[CONF_TOKEN]}"}
 
         try:

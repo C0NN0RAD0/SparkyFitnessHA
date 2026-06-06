@@ -16,7 +16,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import API_TIMEOUT_SECONDS, DEFAULT_SCAN_INTERVAL_MINUTES, DOMAIN
+from .const import (
+    API_TIMEOUT_SECONDS,
+    CONF_SCHEME,
+    CONF_VERIFY_SSL,
+    DEFAULT_SCAN_INTERVAL_MINUTES,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +33,7 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 class SparkyFitnessConfig:
     """Config data used by the API client."""
 
-    host: str
+    base_url: str
     token: str
 
 
@@ -36,12 +42,12 @@ class SparkyFitnessApiClient:
 
     def __init__(self, session: ClientSession, config: SparkyFitnessConfig) -> None:
         self._session = session
-        self._host = config.host.rstrip("/")
+        self._base_url = config.base_url.rstrip("/")
         self._token = config.token
 
     async def async_get(self, endpoint: str) -> dict[str, Any]:
         """GET JSON from a SparkyFitness API endpoint."""
-        url = f"{self._host}/api{endpoint}"
+        url = f"{self._base_url}/api{endpoint}"
         headers = {"Authorization": f"Bearer {self._token}"}
 
         try:
@@ -115,9 +121,11 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
 
 async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry) -> bool:
     """Set up SparkyFitness from a config entry."""
-    session = async_get_clientsession(hass)
+    session = async_get_clientsession(
+        hass, verify_ssl=entry.data[CONF_VERIFY_SSL]
+    )
     config = SparkyFitnessConfig(
-        host=entry.data[CONF_HOST],
+        base_url=f"{entry.data[CONF_SCHEME]}://{entry.data[CONF_HOST]}",
         token=entry.data[CONF_TOKEN],
     )
     client = SparkyFitnessApiClient(session, config)
