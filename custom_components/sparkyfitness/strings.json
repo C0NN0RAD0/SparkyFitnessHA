@@ -21,5 +21,16 @@
       "cannot_connect": "Cannot connect to SparkyFitness server.",
       "unknown": "Unexpected error"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Sparky Fitness Options",
+        "description": "Adjust settings for your Sparky Fitness integration.",
+        "data": {
+          "scan_interval": "Polling interval (minutes)"
+        }
+      }
+    }
   }
 }

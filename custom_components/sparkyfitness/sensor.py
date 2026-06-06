@@ -7,13 +7,13 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfLength, UnitOfMass, UnitOfTime, UnitOfVolume
+from homeassistant.const import CONF_HOST, CONF_SCHEME, UnitOfLength, UnitOfMass, UnitOfTime, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SparkyFitnessConfigEntry
-from .const import ATTRIBUTION, DOMAIN
+from .const import ATTRIBUTION, CONF_SCHEME as _CONF_SCHEME_CONST, DOMAIN
 
 
 @dataclass(frozen=True)
@@ -240,6 +240,11 @@ async def async_setup_entry(
         CustomMeasurementSensor(coordinator, category)
         for category in custom_categories
         if isinstance(category, dict) and category.get("id")
+    ])
+
+    entities.extend([
+        SparkyFitnessHealthSensor(coordinator, entry),
+        SparkyFitnessLatencySensor(coordinator),
     ])
 
     async_add_entities(entities)
@@ -624,3 +629,71 @@ class CustomMeasurementSensor(SparkyFitnessCoordinatorSensor):
                     return str(val).lower() in ("true", "1", "yes")
                 return str(val)
         return None
+
+
+class SparkyFitnessHealthSensor(SparkyFitnessCoordinatorSensor):
+    """Sensor reporting the health/reachability of the Sparky Fitness instance."""
+
+    _attr_entity_category = None
+    _attr_icon = "mdi:heart-pulse"
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="instance_health",
+            name="Instance Health",
+            icon="mdi:heart-pulse",
+        )
+        self._entry = entry
+
+    @property
+    def available(self) -> bool:
+        """Always available so we can display Offline instead of unavailable."""
+        return True
+
+    @property
+    def native_value(self) -> str:
+        """Return Online when coordinator is healthy, Offline otherwise."""
+        if not self.coordinator.last_update_success:
+            return "Offline"
+        stats = self.coordinator.data.get("health_stats", {})
+        return stats.get("status", "Online")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return health statistics as state attributes."""
+        stats = self.coordinator.data.get("health_stats", {}) if self.coordinator.data else {}
+        server_url = (
+            f"{self._entry.data.get(_CONF_SCHEME_CONST, 'https')}://"
+            f"{self._entry.data.get(CONF_HOST, 'unknown')}"
+        )
+        return {
+            "server_url": server_url,
+            "latency_seconds": stats.get("latency_seconds"),
+            "last_successful_update": stats.get("last_successful_update"),
+            "custom_categories_count": stats.get("custom_categories_count", 0),
+        }
+
+
+class SparkyFitnessLatencySensor(SparkyFitnessCoordinatorSensor):
+    """Sensor reporting the total API poll round-trip latency in seconds."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.SECONDS
+    _attr_icon = "mdi:timer-outline"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="api_latency",
+            name="API Latency",
+            icon="mdi:timer-outline",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        """Return last measured API round-trip latency in seconds."""
+        if not self.coordinator.last_update_success or not self.coordinator.data:
+            return None
+        stats = self.coordinator.data.get("health_stats", {})
+        return stats.get("latency_seconds")

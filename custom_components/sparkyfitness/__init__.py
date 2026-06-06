@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
+import time
 from typing import Any, TypeAlias
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
@@ -22,6 +23,7 @@ import voluptuous as vol
 
 from .const import (
     API_TIMEOUT_SECONDS,
+    CONF_SCAN_INTERVAL,
     CONF_SCHEME,
     CONF_VERIFY_SSL,
     DEFAULT_SCAN_INTERVAL_MINUTES,
@@ -112,6 +114,12 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
         "water_containers": [],
         "custom_categories": [],
         "custom_entries": [],
+        "health_stats": {
+            "status": "Online",
+            "latency_seconds": None,
+            "last_successful_update": None,
+            "custom_categories_count": 0,
+        },
     }
 
     endpoints = {
@@ -128,6 +136,8 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
         "custom_categories": "/measurements/custom-categories",
         "custom_entries": f"/measurements/custom-entries/{today}",
     }
+
+    poll_start = time.monotonic()
 
     for key, endpoint in endpoints.items():
         try:
@@ -152,6 +162,14 @@ async def _async_update_data(client: SparkyFitnessApiClient) -> dict[str, Any]:
             raise
         except Exception as err:
             raise UpdateFailed(f"Unexpected update error on {endpoint}: {err}") from err
+
+    latency = round(time.monotonic() - poll_start, 3)
+    data["health_stats"] = {
+        "status": "Online",
+        "latency_seconds": latency,
+        "last_successful_update": dt_util.utcnow().isoformat(),
+        "custom_categories_count": len(data.get("custom_categories", [])),
+    }
 
     return data
 
@@ -199,17 +217,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
     )
     client = SparkyFitnessApiClient(session, config)
 
+    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_MINUTES)
+
     coordinator: DataUpdateCoordinator[dict[str, Any]] = DataUpdateCoordinator(
         hass,
         _LOGGER,
         name=f"{DOMAIN}_{entry.data.get(CONF_NAME, 'default')}",
         update_method=lambda: _async_update_data(client),
-        update_interval=timedelta(minutes=DEFAULT_SCAN_INTERVAL_MINUTES),
+        update_interval=timedelta(minutes=scan_interval),
     )
 
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = SparkyFitnessRuntimeData(client=client, coordinator=coordinator)
+
+    # Reload the entry when options change (e.g. scan interval update)
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     # Register services
     async def handle_start_fast(call):
@@ -422,3 +445,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntr
                 if hass.services.has_service(DOMAIN, service):
                     hass.services.async_remove(DOMAIN, service)
     return unload_ok
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry) -> None:
+    """Reload the config entry when options are updated."""
+    await hass.config_entries.async_reload(entry.entry_id)
