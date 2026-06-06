@@ -313,6 +313,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
         else:
             container_volume_ml = volume
 
+        if container_volume_ml <= 0:
+            raise HomeAssistantError("Container volume must be greater than zero")
+
         change_drinks = round(float(amount_ml) / container_volume_ml, 2)
         today = dt_util.now().date().isoformat()
 

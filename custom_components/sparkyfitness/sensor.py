@@ -296,7 +296,9 @@ class DailySummarySensor(SparkyFitnessCoordinatorSensor):
     def native_value(self) -> float | int | None:
         """Return state from daily summary payload."""
         payload = self.coordinator.data.get("daily_summary", {})
-        value = payload.get(f"total_{self._key}") or payload.get(self._key)
+        value = payload.get(f"total_{self._key}")
+        if value is None:
+            value = payload.get(self._key)
         val = _as_float(value)
         if val is None:
             return None
