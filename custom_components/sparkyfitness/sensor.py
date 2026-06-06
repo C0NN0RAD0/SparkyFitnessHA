@@ -411,6 +411,23 @@ class WaterIntakeSensor(SparkyFitnessCoordinatorSensor):
             return int(round(val)) if val is not None else 0
         return 0
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return extra state attributes of the water sensor."""
+        containers = self.coordinator.data.get("water_containers", [])
+        return {
+            "containers": [
+                {
+                    "id": c.get("id"),
+                    "name": c.get("name"),
+                    "volume": c.get("volume"),
+                    "unit": c.get("unit"),
+                    "is_primary": c.get("is_primary"),
+                }
+                for c in containers
+            ]
+        }
+
 
 class MoodSensor(SparkyFitnessCoordinatorSensor):
     """Current mood sensor."""

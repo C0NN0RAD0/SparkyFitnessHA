@@ -162,10 +162,16 @@ END_FAST_SCHEMA = vol.Schema({
     vol.Optional("notes"): cv.string,
 })
 
-LOG_WATER_SCHEMA = vol.Schema({
-    vol.Required("amount_ml"): vol.Coerce(int),
-    vol.Optional("container"): cv.string,
-})
+LOG_WATER_SCHEMA = vol.Schema(
+    vol.All(
+        vol.Schema({
+            vol.Optional("amount_ml"): vol.Coerce(int),
+            vol.Optional("drinks"): vol.Coerce(float),
+            vol.Optional("container"): cv.string,
+        }),
+        cv.has_at_least_one_key("amount_ml", "drinks"),
+    )
+)
 
 LOG_MOOD_SCHEMA = vol.Schema({
     vol.Required("mood_value"): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
@@ -255,8 +261,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
         if mood_value is not None:
             payload["mood"] = {
                 "value": mood_value,
-                "notes": notes or "",
             }
+            if notes is not None:
+                payload["mood"]["notes"] = notes
 
         try:
             await client.async_post("/fasting/end", json=payload)
@@ -273,7 +280,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
         client = entry.runtime_data.client
         coordinator = entry.runtime_data.coordinator
 
-        amount_ml = call.data["amount_ml"]
+        amount_ml = call.data.get("amount_ml")
+        drinks = call.data.get("drinks")
         container_input = call.data.get("container")
 
         containers = coordinator.data.get("water_containers", [])
@@ -305,18 +313,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
         if not selected_container:
             raise HomeAssistantError("No water container defined in Sparky Fitness")
 
-        # Calculate volume in ml
-        unit = str(selected_container.get("unit", "ml")).lower()
-        volume = float(selected_container.get("volume", 250.0))
-        if "oz" in unit:
-            container_volume_ml = volume * 29.5735
+        if drinks is not None:
+            change_drinks = float(drinks)
         else:
-            container_volume_ml = volume
+            # Calculate volume in ml
+            unit = str(selected_container.get("unit", "ml")).lower()
+            volume = float(selected_container.get("volume", 250.0))
+            if "oz" in unit:
+                container_volume_ml = volume * 29.5735
+            else:
+                container_volume_ml = volume
 
-        if container_volume_ml <= 0:
-            raise HomeAssistantError("Container volume must be greater than zero")
+            if container_volume_ml <= 0:
+                raise HomeAssistantError("Container volume must be greater than zero")
 
-        change_drinks = round(float(amount_ml) / container_volume_ml, 2)
+            change_drinks = round(float(amount_ml) / container_volume_ml, 2)
+
         today = dt_util.now().date().isoformat()
 
         payload = {
@@ -346,9 +358,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
 
         payload = {
             "mood_value": mood_value,
-            "notes": notes or "",
             "entry_date": today,
         }
+        if notes is not None:
+            payload["notes"] = notes
 
         try:
             await client.async_post("/mood", json=payload)
