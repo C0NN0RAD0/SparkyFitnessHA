@@ -32,7 +32,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
 
 
 @dataclass
@@ -93,6 +93,7 @@ class SparkyFitnessRuntimeData:
 
     client: SparkyFitnessApiClient
     coordinator: DataUpdateCoordinator[dict[str, Any]]
+    selected_container_id: str | None = None
 
 
 SparkyFitnessConfigEntry: TypeAlias = ConfigEntry[SparkyFitnessRuntimeData]
@@ -324,6 +325,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: SparkyFitnessConfigEntry
             if not selected_container:
                 for c in containers:
                     if c.get("name", "").lower() == container_input.lower():
+                        selected_container = c
+                        break
+
+        if not selected_container:
+            # Fallback to UI-selected container from select entity
+            if entry.runtime_data.selected_container_id:
+                for c in containers:
+                    if c.get("id") == entry.runtime_data.selected_container_id:
                         selected_container = c
                         break
 
