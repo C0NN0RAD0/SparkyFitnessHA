@@ -141,6 +141,13 @@ DAILY_SENSORS: tuple[SparkyFitnessSensorDescription, ...] = (
         unit="g",
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    SparkyFitnessSensorDescription(
+        key="dietary_fiber",
+        name="Daily Fiber",
+        icon="mdi:leaf",
+        unit="g",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
 )
 
 
@@ -233,6 +240,7 @@ async def async_setup_entry(
         LightSleepSensor(coordinator),
         ExerciseDurationSensor(coordinator),
         ExerciseCaloriesSensor(coordinator),
+        CaloriesRemainingSensor(coordinator),
         WaterIntakeSensor(coordinator),
         MoodSensor(coordinator),
         FastingStatusSensor(coordinator),
@@ -505,7 +513,7 @@ class ExerciseCaloriesSensor(SparkyFitnessCoordinatorSensor):
         )
 
     @property
-    def native_value(self) -> int | None:
+    def _get_native_value(self) -> int | None:
         """Return total exercise calories from current payload."""
         exercises = self.coordinator.data.get("exercises", [])
         total = 0.0
@@ -513,6 +521,33 @@ class ExerciseCaloriesSensor(SparkyFitnessCoordinatorSensor):
             if isinstance(item, dict):
                 total += _as_float(item.get("calories_burned")) or 0.0
         return int(round(total))
+
+
+class CaloriesRemainingSensor(SparkyFitnessCoordinatorSensor):
+    """Remaining calories for the day."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "kcal"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(
+            coordinator,
+            unique_key="calories_remaining",
+            name="Calories Remaining",
+            icon="mdi:calculator",
+        )
+
+    def _get_native_value(self) -> float | None:
+        """Calculate calories remaining: Goal - Consumed."""
+        goals = self.coordinator.data.get("goals", {})
+        summary = self.coordinator.data.get("daily_summary", {})
+
+        goal_cals = _as_float(goals.get("calories"))
+        consumed_cals = _as_float(summary.get("total_calories"))
+
+        if goal_cals is not None and consumed_cals is not None:
+            return round(goal_cals - consumed_cals, 2)
+        return None
 
 
 class WaterIntakeSensor(SparkyFitnessCoordinatorSensor):
