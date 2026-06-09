@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorEntity, SensorStateClass, RestoreSensor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, UnitOfLength, UnitOfMass, UnitOfTime, UnitOfVolume
 from homeassistant.core import HomeAssistant
@@ -35,7 +35,7 @@ CHECK_IN_SENSORS: tuple[SparkyFitnessSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SparkyFitnessSensorDescription(
-        key="body_fat",
+        key="body_fat_percentage",
         name="Body Fat",
         icon="mdi:percent",
         unit="%",
@@ -261,7 +261,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class SparkyFitnessCoordinatorSensor(CoordinatorEntity, SensorEntity):
+class SparkyFitnessCoordinatorSensor(CoordinatorEntity, RestoreSensor):
     """Base sensor for SparkyFitness entities."""
 
     _attr_attribution = ATTRIBUTION
@@ -272,6 +272,25 @@ class SparkyFitnessCoordinatorSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{coordinator.config_entry.entry_id}_{unique_key}"
         self._attr_name = name
         self._attr_icon = icon
+        self._restored_native_value = None
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added."""
+        await super().async_added_to_hass()
+        if (last_sensor_data := await self.async_get_last_sensor_data()) is not None:
+            self._restored_native_value = last_sensor_data.native_value
+
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        val = self._get_native_value()
+        if val is None and self._restored_native_value is not None:
+            return self._restored_native_value
+        return val
+
+    def _get_native_value(self):
+        """Override this method in subclasses to return the actual state."""
+        return None
 
 
 class CheckInSensor(SparkyFitnessCoordinatorSensor):
@@ -288,8 +307,7 @@ class CheckInSensor(SparkyFitnessCoordinatorSensor):
         self._attr_native_unit_of_measurement = description.unit
         self._attr_state_class = description.state_class
 
-    @property
-    def native_value(self) -> float | int | None:
+    def _get_native_value(self) -> float | int | None:
         """Return state from the current check-in payload."""
         payload = self.coordinator.data.get("check_in", {})
         value = payload.get(self._key)
@@ -315,8 +333,7 @@ class DailySummarySensor(SparkyFitnessCoordinatorSensor):
         self._attr_native_unit_of_measurement = description.unit
         self._attr_state_class = description.state_class
 
-    @property
-    def native_value(self) -> float | int | None:
+    def _get_native_value(self) -> float | int | None:
         """Return state from daily summary payload."""
         payload = self.coordinator.data.get("daily_summary", {})
         value = payload.get(f"total_{self._key}")
@@ -344,8 +361,7 @@ class SleepDurationSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:bed",
         )
 
-    @property
-    def native_value(self) -> float | None:
+    def _get_native_value(self) -> float | None:
         """Return total sleep window in hours from duration_in_seconds."""
         payload = self.coordinator.data.get("sleep", {})
         if not payload:
@@ -403,8 +419,7 @@ class SleepScoreSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:sleep",
         )
 
-    @property
-    def native_value(self) -> int | None:
+    def _get_native_value(self) -> int | None:
         payload = self.coordinator.data.get("sleep", {})
         val = _as_float(payload.get("sleep_score"))
         return int(val) if val is not None else None
@@ -424,8 +439,7 @@ class DeepSleepSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:bed-clock",
         )
 
-    @property
-    def native_value(self) -> float | None:
+    def _get_native_value(self) -> float | None:
         payload = self.coordinator.data.get("sleep", {})
         val = _as_float(payload.get("deep_sleep_seconds"))
         return round(val / 60.0, 1) if val is not None else None
@@ -445,8 +459,7 @@ class RemSleepSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:head-dots-horizontal",
         )
 
-    @property
-    def native_value(self) -> float | None:
+    def _get_native_value(self) -> float | None:
         payload = self.coordinator.data.get("sleep", {})
         val = _as_float(payload.get("rem_sleep_seconds"))
         return round(val / 60.0, 1) if val is not None else None
@@ -466,8 +479,7 @@ class LightSleepSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:weather-night-partly-cloudy",
         )
 
-    @property
-    def native_value(self) -> float | None:
+    def _get_native_value(self) -> float | None:
         payload = self.coordinator.data.get("sleep", {})
         val = _as_float(payload.get("light_sleep_seconds"))
         return round(val / 60.0, 1) if val is not None else None
@@ -487,8 +499,7 @@ class ExerciseDurationSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:dumbbell",
         )
 
-    @property
-    def native_value(self) -> float | None:
+    def _get_native_value(self) -> float | None:
         """Return total exercise duration from current payload."""
         exercises = self.coordinator.data.get("exercises", [])
         total = 0.0
@@ -564,8 +575,7 @@ class WaterIntakeSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:water",
         )
 
-    @property
-    def native_value(self) -> int | None:
+    def _get_native_value(self) -> int | None:
         """Return water intake in ml."""
         payload = self.coordinator.data.get("water", {})
         value = payload.get("water_ml")
@@ -603,8 +613,7 @@ class MoodSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:emoticon",
         )
 
-    @property
-    def native_value(self) -> str | None:
+    def _get_native_value(self) -> str | None:
         """Return latest mood label."""
         payload = self.coordinator.data.get("mood", {})
         label = payload.get("mood_label")
@@ -649,8 +658,7 @@ class GoalSensor(SparkyFitnessCoordinatorSensor):
         self._attr_native_unit_of_measurement = description.unit
         self._attr_state_class = description.state_class
 
-    @property
-    def native_value(self) -> float | int | None:
+    def _get_native_value(self) -> float | int | None:
         """Return target value from goals payload."""
         payload = self.coordinator.data.get("goals", {})
         value = payload.get(self._key)
@@ -676,8 +684,7 @@ class FastingStatsSensor(SparkyFitnessCoordinatorSensor):
         self._attr_native_unit_of_measurement = description.unit
         self._attr_state_class = description.state_class
 
-    @property
-    def native_value(self) -> float | int | None:
+    def _get_native_value(self) -> float | int | None:
         """Return fasting stats from payload."""
         payload = self.coordinator.data.get("fasting_stats", {})
         value = payload.get(self._key)
@@ -705,8 +712,7 @@ class FastingStatusSensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:clock-fast",
         )
 
-    @property
-    def native_value(self) -> str | None:
+    def _get_native_value(self) -> str | None:
         """Return Fasting or Not Fasting status."""
         active_fast = self.coordinator.data.get("fasting_current")
         if active_fast and active_fast.get("id"):
@@ -764,8 +770,7 @@ class CustomMeasurementSensor(SparkyFitnessCoordinatorSensor):
         if category.get("data_type") == "numeric":
             self._attr_state_class = SensorStateClass.MEASUREMENT
 
-    @property
-    def native_value(self) -> float | str | bool | None:
+    def _get_native_value(self) -> float | str | bool | None:
         """Return value of the custom measurement for today."""
         entries = self.coordinator.data.get("custom_entries", [])
         for entry in entries:
@@ -802,8 +807,7 @@ class SparkyFitnessHealthSensor(SparkyFitnessCoordinatorSensor):
         """Always available so we can display Offline instead of unavailable."""
         return True
 
-    @property
-    def native_value(self) -> str:
+    def _get_native_value(self) -> str:
         """Return Online when coordinator is healthy, Offline otherwise."""
         if not self.coordinator.last_update_success:
             return "Offline"
@@ -841,8 +845,7 @@ class SparkyFitnessLatencySensor(SparkyFitnessCoordinatorSensor):
             icon="mdi:timer-outline",
         )
 
-    @property
-    def native_value(self) -> float | None:
+    def _get_native_value(self) -> float | None:
         """Return last measured API round-trip latency in seconds."""
         if not self.coordinator.last_update_success or not self.coordinator.data:
             return None
