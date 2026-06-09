@@ -94,6 +94,7 @@ class SparkyFitnessRuntimeData:
     client: SparkyFitnessApiClient
     coordinator: DataUpdateCoordinator[dict[str, Any]]
     selected_container_id: str | None = None
+    selected_mood: int | None = None
 
 
 SparkyFitnessConfigEntry: TypeAlias = ConfigEntry[SparkyFitnessRuntimeData]

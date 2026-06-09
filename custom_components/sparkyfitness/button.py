@@ -23,7 +23,7 @@ async def async_setup_entry(
     """Set up the SparkyFitness button platform."""
     coordinator = entry.runtime_data.coordinator
     client = entry.runtime_data.client
-    async_add_entities([LogWaterButton(coordinator, client, entry)])
+    async_add_entities([LogWaterButton(coordinator, client, entry), LogMoodButton(coordinator, client, entry)])
 
 
 class LogWaterButton(CoordinatorEntity, ButtonEntity):
@@ -88,3 +88,44 @@ class LogWaterButton(CoordinatorEntity, ButtonEntity):
             await self.coordinator.async_refresh()
         except Exception as err:
             raise HomeAssistantError(f"Failed to log water intake: {err}") from err
+
+class LogMoodButton(CoordinatorEntity, ButtonEntity):
+    """Button to log the selected mood."""
+
+    _attr_attribution = ATTRIBUTION
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:emoticon-plus"
+    _attr_name = "Log Selected Mood"
+
+    def __init__(
+        self, coordinator, client, entry: SparkyFitnessConfigEntry
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self._client = client
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_log_mood_btn"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": entry.title,
+            "manufacturer": "Sparky Fitness",
+            "model": "API Integration",
+        }
+
+    async def async_press(self) -> None:
+        """Handle the button press."""
+        selected_mood = self._entry.runtime_data.selected_mood
+        if not selected_mood:
+            selected_mood = 4 # Default to Good if none selected
+
+        today = dt_util.now().date().isoformat()
+        payload = {
+            "entry_date": today,
+            "mood_value": selected_mood,
+        }
+
+        try:
+            await self._client.async_post("/mood", json=payload)
+            await self.coordinator.async_refresh()
+        except Exception as err:
+            raise HomeAssistantError(f"Failed to log mood: {err}") from err
