@@ -9,6 +9,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from homeassistant.const import CONF_NAME
 from . import SparkyFitnessConfigEntry
 from .const import ATTRIBUTION, DOMAIN
 
@@ -37,6 +38,11 @@ class WaterContainerSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_water_container"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": entry.data.get(CONF_NAME, "Sparky Fitness"),
+            "manufacturer": "Sparky Fitness",
+        }
         self._container_map: dict[str, str] = {}
         self._attr_current_option = None
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass, RestoreSensor
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, UnitOfLength, UnitOfMass, UnitOfTime, UnitOfVolume
+from homeassistant.const import CONF_HOST, CONF_NAME, UnitOfLength, UnitOfMass, UnitOfTime, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -272,6 +272,11 @@ class SparkyFitnessCoordinatorSensor(CoordinatorEntity, RestoreSensor):
         self._attr_unique_id = f"{DOMAIN}_{coordinator.config_entry.entry_id}_{unique_key}"
         self._attr_name = name
         self._attr_icon = icon
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
+            "name": coordinator.config_entry.data.get(CONF_NAME, "Sparky Fitness"),
+            "manufacturer": "Sparky Fitness",
+        }
         self._restored_native_value = None
 
     async def async_added_to_hass(self) -> None:
