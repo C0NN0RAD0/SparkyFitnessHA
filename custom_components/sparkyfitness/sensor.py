@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTRIBUTION, DOMAIN
+from .const import ATTRIBUTION, DOMAIN, CONF_SCHEME
 
 
 @dataclass(frozen=True)
@@ -824,7 +824,7 @@ class SparkyFitnessHealthSensor(SparkyFitnessCoordinatorSensor):
         """Return health statistics as state attributes."""
         stats = self.coordinator.data.get("health_stats", {}) if self.coordinator.data else {}
         server_url = (
-            f"{self._entry.data.get(_CONF_SCHEME_CONST, 'https')}://"
+            f"{self._entry.data.get(CONF_SCHEME, 'https')}://"
             f"{self._entry.data.get(CONF_HOST, 'unknown')}"
         )
         return {
